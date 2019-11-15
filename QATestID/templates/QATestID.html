@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+	<script type="text/javascript" src="{{ url_for('static', filename= './js/request.js') }}"></script>
+	<script type="text/javascript" src="{{ url_for('static', filename= './js/utility.js') }}"></script>
+	<style type="text/css">
+		canvas {
+			position: absolute;
+			right: 0px;
+			left: 60px;
+			top: 0px;
+			border: 1px solid #c3c3c3;
+		}
+	</style>
+
+	<script type="text/javascript">
+		var isDrawing = false
+
+		var pointX = 0
+		var pointY = 0
+
+		var isAddMark = false
+		var isAddText = false
+
+		var lines = new Array()
+
+		function willAddMark() {
+			isAddMark = true
+			isAddText = false
+		}
+
+		function willAddText() {
+			isAddMark = false
+			isAddText = true
+		}
+
+		function addText(event) {
+			if (!isAddText) { return }
+
+			var markText = addTextMark(event.clientX, event.clientY, "")
+			markText.focus()
+
+			isAddText = false
+		}
+
+		function drawPoint(event) {
+			if (!isAddMark) { return }
+			pointX = event.clientX - 60;
+			pointY = event.clientY
+
+			var canvas = document.getElementById("point_canvas")
+			var ctx = canvas.getContext("2d")
+
+			drawPointIn(ctx, pointX, pointY)
+
+			isDrawing = true
+		}
+
+		function drawLine(event) {
+			if (!isDrawing) { return }
+			var x = event.clientX - 60
+			var y = event.clientY
+
+			var canvas = document.getElementById("line_canvas")
+			var ctx = canvas.getContext("2d")
+			ctx.clearRect(0,0,canvas.width,canvas.height)
+
+			drawLineIn(ctx, pointX, pointY, x, y)
+		}
+
+		function drawResultMark(event) {
+			if (!isAddMark) { return }
+			isDrawing = false
+
+			var x = event.clientX - 60
+			var y = event.clientY
+
+			clearCanvas("point_canvas")
+
+			clearCanvas("line_canvas")
+
+			var resultCanvas = document.getElementById("result_canvas")
+			var resultCtx = resultCanvas.getContext("2d")
+			drawPointIn(resultCtx, pointX, pointY)
+			drawLineIn(resultCtx, pointX, pointY, x, y)
+
+			var lineStr = getLineStr(pointX, pointY, x, y)
+			lines.push(lineStr)
+		}
+
+		function saveInfo() {
+			isAddMark = false
+			isAddText = false
+
+			var textInfos = new Array()
+			var textEs = document.getElementsByTagName('input')
+			for (var i = 0; i < textEs.length; i ++) {
+				var textE = textEs[i]
+				var pointStr = getPointStr(textE.offsetLeft, textE.offsetTop)
+				var text = textE.value
+
+				var textDic = {}
+				textDic[text] = pointStr
+				textInfos.push(textDic)
+			}
+
+			var info = {'lines': lines, 'texts': textInfos}
+
+			var pageID = getPageID()
+			var data = {}
+			data['pageID'] = pageID
+			data['info'] = info
+
+			request({
+			    url: 'saveMark',
+			    method: 'POST',
+			    data: data,
+			    success: function (res) {
+			    	window.alert('提交成功')
+			    },
+			    error: function (err) {
+			    	window.alert('提交失败')
+			    }
+			})
+		}
+
+		function reset() {
+			clearCanvas('result_canvas')
+
+			var textDiv = document.getElementById("textMark")
+			var inputEs = textDiv.getElementsByTagName('input')
+			for (var i = 0; i < inputEs.length; i++) {
+				var item = inputEs[i]
+				textDiv.removeChild(item)
+			}
+		}
+
+		function showTip() {
+			var tip = '使用说明\n\
+			连线：点击“连线”按钮，到所需位置，点击拖动后，画出指示连线（可以连续使用，不用每次添加连线都点击“连线”按钮）\n\
+			文字：点击“文字”按钮，到所需位置，点击后出现输入框，输入文字（每次添加文字都需要点击一次“文字”按钮，不能连续使用）\n\
+			重置：清空重置所有连线和文字'
+			window.alert(tip)
+		}
+
+	</script>
+</head>
+<body>
+	<div style="width: 100%; display: flex; justify-content: flex-start;">
+		<div id="list" align="center" style="width: 50px;border:1px solid #c3c3c3;">
+			<button onclick="willAddMark()" style="width: 100%">连线</button>
+			<button onclick="willAddText()" style="width: 100%">文字</button>
+			<br><br><br><br><br>
+			<button onclick="reset()" style="width: 100%">重置</button>
+			<button style="width: 100%" onclick="saveInfo()">保存</button><br>
+			<br><br><br>
+			<button onclick="showTip()">帮助</button>
+		</div>
+
+		<div id="imgDiv" style="height: 600px; width: 1000px;" align="center"><img src="{{ file }}" style="max-height: 100%"></div>
+	</div>
+
+	<div id="textMark" style="border:1px solid #c3c3c3; position: absolute; top: 0px; left: 60px; width: 1000px; height: 500px;">
+	</div>
+
+	<canvas id="result_canvas" width="1000" height="650"></canvas>
+	<canvas id="point_canvas" width="1000" height="650"></canvas>
+	<canvas id="line_canvas" width="1000" height="650" onmousedown="drawPoint(event)" onmousemove="drawLine(event)" onmouseup="drawResultMark(event)" onclick="addText(event)">
+	</canvas>
+
+	<script type="text/javascript">
+		var windowH = document.documentElement.clientHeight
+		var windowW = document.documentElement.clientWidth
+
+		var imgDiv = document.getElementById('imgDiv')
+		var textDiv = document.getElementById('textMark')
+		var resultCanvas = document.getElementById('result_canvas')
+		var pointCanvas = document.getElementById('point_canvas')
+		var lineCanvas = document.getElementById('line_canvas')
+
+		imgDiv.style.height = windowH + 'px'
+		textDiv.style.height = windowH + 'px'
+		resultCanvas.height = windowH
+		pointCanvas.height = windowH
+		lineCanvas.height = windowH
+
+	</script>
+
+	<script type="text/javascript">
+		var pageId = getPageID()
+		var data = {}
+		data['pageId'] = pageId
+		request({
+		    url: 'getMarkInfo',
+		    method: 'GET',
+		    data: data,
+		    success: function (res) {
+		    	var textInfos = res['texts']
+		    	if (typeof(textInfos) != "undefined") {
+		    		showPreMarkText(textInfos)
+		    	}
+
+		    	var lineInfos = res['lines']
+		    	if (typeof(lineInfos) != "undefined") {
+		    		showPreLineMark(lineInfos)
+		    	}
+		    },
+		    error: function (err) {
+		    	window.alert('获取数据失败')
+		    }
+		})
+
+		function showPreMarkText(textInfos) {
+			for (var i = 0; i < textInfos.length; i++) {
+				var info = textInfos[i]
+				for (var key in info) {
+					var xyStr = info[key]
+					var x = position(xyStr, true, true) + 60
+					var y = position(xyStr, true, false)
+
+					addTextMark(x, y, key)
+				}
+			}
+		}
+
+		function showPreLineMark(lineInfos) {
+			for (var i = 0; i < lineInfos.length; i++) {
+				var lineStr = lineInfos[i]
+				var fromX = position(lineStr, true, true)
+				var fromY = position(lineStr, true, false)
+				var toX = position(lineStr, false, true)
+				var toY = position(lineStr, false, false)
+
+				var resultCanvas = document.getElementById("result_canvas")
+				var resultCtx = resultCanvas.getContext("2d")
+				drawPointIn(resultCtx, fromX, fromY)
+				drawLineIn(resultCtx, fromX, fromY, toX, toY)
+
+				lines.push(lineStr)
+			}
+		}
+	</script>
+
+</body>
+</html>

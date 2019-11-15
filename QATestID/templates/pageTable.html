@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+	<script type="text/javascript" src="{{ url_for('static', filename= './js/request.js') }}"></script>
+</head>
+<body>
+	<ul id="pages"></table>
+	<script type="text/javascript">
+		request({
+			    url: 'getPages',
+			    method: 'GET',
+			    data: {},
+			    success: function (res) {
+			    	var pages = res['allPages']
+			    	renderPages(pages)
+			    },
+			    error: function (err) {
+
+			    }
+			})
+
+		function renderPages(pages) {
+			console.log(pages)
+			for(let pageIndex in pages) {
+				var pageName = pages[pageIndex]
+				var liE = document.createElement('li')
+
+				var aE = document.createElement('a')
+				aE.innerHTML = pageName.split('.')[0]
+				aE.href = '/page.html?page=' + pages[pageIndex]
+				liE.appendChild(aE)
+
+				var ulE = document.getElementById('pages')
+				ulE.appendChild(liE)
+			}
+		}
+	</script>
+
+</body>
+</html>
